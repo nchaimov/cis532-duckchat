@@ -51,7 +51,7 @@ void timerExpired(int signum);
 const int MAX_NUM_CHANNELS = 32;
 const int MAX_NUM_USERS = 32;
 const size_t MAX_BUFFER_SIZE = sizeof(text) + (CHANNEL_MAX*MAX_NUM_CHANNELS) + (USERNAME_MAX*MAX_NUM_USERS);
-const int KEEP_ALIVE_FREQ = 45;
+const int KEEP_ALIVE_FREQ = 60;
 const int MAXLINE = 64;
 
 // ***** GLOBAL VARIABLES *****
@@ -161,9 +161,10 @@ int main(int argc, char ** argv) {
 }
 
 void sendLoginPacket(int sock, struct addrinfo * p, const char * userName) {
+	alarm(KEEP_ALIVE_FREQ);
     struct request_login packet;
 	memset(&packet, '\0', sizeof(packet));
-    packet.req_type = REQ_LOGIN;
+    packet.req_type = htonl(REQ_LOGIN);
     strncpy(packet.req_username, userName, USERNAME_MAX);
     int status = sendto(sock, &packet, sizeof(struct request_login), 0, p->ai_addr, p->ai_addrlen);
     if(status == -1) {
@@ -173,9 +174,10 @@ void sendLoginPacket(int sock, struct addrinfo * p, const char * userName) {
 }
 
 void sendLogoutPacket(int sock, struct addrinfo * p) {
+	alarm(KEEP_ALIVE_FREQ);
     struct request_logout packet;
 	memset(&packet, '\0', sizeof(packet));
-    packet.req_type = REQ_LOGOUT;
+    packet.req_type = htonl(REQ_LOGOUT);
     int status = sendto(sock, &packet, sizeof(struct request_logout), 0, p->ai_addr, p->ai_addrlen);
     if(status == -1) {
 		printErrorMsg("unable to send logout packet");
@@ -183,9 +185,10 @@ void sendLogoutPacket(int sock, struct addrinfo * p) {
 }
 
 void sendJoinPacket(int sock, struct addrinfo * p, const char * channelName) {
+	alarm(KEEP_ALIVE_FREQ);
     struct request_join packet;
 	memset(&packet, '\0', sizeof(packet));
-    packet.req_type = REQ_JOIN;
+    packet.req_type = htonl(REQ_JOIN);
     strncpy(packet.req_channel, channelName, CHANNEL_MAX);
     int status = sendto(sock, &packet, sizeof(struct request_join), 0, p->ai_addr, p->ai_addrlen);
     if(status == -1) {
@@ -194,8 +197,9 @@ void sendJoinPacket(int sock, struct addrinfo * p, const char * channelName) {
 }
 
 void sendLeavePacket(int sock, struct addrinfo * p, const char * channelName) {
+	alarm(KEEP_ALIVE_FREQ);
     struct request_leave packet;
-    packet.req_type = REQ_LEAVE;
+    packet.req_type = htonl(REQ_LEAVE);
     strncpy(packet.req_channel, channelName, CHANNEL_MAX);
     int status = sendto(sock, &packet, sizeof(struct request_leave), 0, p->ai_addr, p->ai_addrlen);
     if(status == -1) {
@@ -204,9 +208,10 @@ void sendLeavePacket(int sock, struct addrinfo * p, const char * channelName) {
 }
 
 void sendSayPacket(int sock, struct addrinfo * p, const char * channelName, const char * msg) {
+	alarm(KEEP_ALIVE_FREQ);
     struct request_say packet;
 	memset(&packet, '\0', sizeof(packet));
-    packet.req_type = REQ_SAY;
+    packet.req_type = htonl(REQ_SAY);
     strncpy(packet.req_channel, channelName, CHANNEL_MAX);
 	strncpy(packet.req_text, msg, SAY_MAX);
     int status = sendto(sock, &packet, sizeof(struct request_say), 0, p->ai_addr, p->ai_addrlen);
@@ -216,9 +221,10 @@ void sendSayPacket(int sock, struct addrinfo * p, const char * channelName, cons
 }
 
 void sendListPacket(int sock, struct addrinfo * p) {
+	alarm(KEEP_ALIVE_FREQ);
     struct request_list packet;
 	memset(&packet, '\0', sizeof(packet));
-    packet.req_type = REQ_LIST;
+    packet.req_type = htonl(REQ_LIST);
     int status = sendto(sock, &packet, sizeof(struct request_list), 0, p->ai_addr, p->ai_addrlen);
     if(status == -1) {
 		printErrorMsg("unable to send list packet");
@@ -226,9 +232,10 @@ void sendListPacket(int sock, struct addrinfo * p) {
 }
 
 void sendWhoPacket(int sock, struct addrinfo * p, const char * channelName) {
+	alarm(KEEP_ALIVE_FREQ);
     struct request_who packet;
 	memset(&packet, '\0', sizeof(packet));
-    packet.req_type = REQ_WHO;
+    packet.req_type = htonl(REQ_WHO);
     strncpy(packet.req_channel, channelName, CHANNEL_MAX);
     int status = sendto(sock, &packet, sizeof(struct request_who), 0, p->ai_addr, p->ai_addrlen);
     if(status == -1) {
@@ -239,7 +246,7 @@ void sendWhoPacket(int sock, struct addrinfo * p, const char * channelName) {
 void sendKeepAlivePacket(int sock, struct addrinfo * p) {
     struct request_keep_alive packet;
 	memset(&packet, '\0', sizeof(packet));
-    packet.req_type = REQ_KEEP_ALIVE;
+    packet.req_type = htonl(REQ_KEEP_ALIVE);
     int status = sendto(sock, &packet, sizeof(struct request_keep_alive), 0, p->ai_addr, p->ai_addrlen);
     if(status == -1) {
 		printErrorMsg("unable to send keep-alive packet");
@@ -253,13 +260,21 @@ void handleNetwork(int sock, struct addrinfo * p) {
 	if(recvSize > 0) {
 		
 		if(recvSize >= sizeof(text)) {
+			buf->txt_type = ntohl(buf->txt_type);
 			switch(buf->txt_type) {
 				
 				case TXT_SAY:
 					if(recvSize >= sizeof(text_say)) {
 						text_say * pkt = (text_say *) buf;
-						wprintw(wnd, "[%.32s][%.32s]: %.64s\n", pkt->txt_channel, pkt->txt_username,
-						 		pkt->txt_text);
+						wprintw(wnd, "[");
+						wattron(wnd, COLOR_PAIR(3));
+						wprintw(wnd, "%.32s", pkt->txt_channel);
+						wattroff(wnd, COLOR_PAIR(3));
+						wprintw(wnd, "][");
+						wattron(wnd, COLOR_PAIR(4));
+						wprintw(wnd, "%.32s", pkt->txt_username);
+						wattroff(wnd, COLOR_PAIR(4));
+						wprintw(wnd, "]: %.64s\n", pkt->txt_text);
 						refreshAll();
 					} else {
 						char err[256];
@@ -285,6 +300,7 @@ void handleNetwork(int sock, struct addrinfo * p) {
 				case TXT_LIST:
 					if(recvSize >= sizeof(text_list)) {
 						text_list * pkt = (text_list *)buf;
+						pkt->txt_nchannels = htonl(pkt->txt_nchannels);
 						const size_t expectedSize = sizeof(text_list) + 
 													(pkt->txt_nchannels * sizeof(channel_info));
 						if(recvSize >= expectedSize) {
@@ -292,7 +308,9 @@ void handleNetwork(int sock, struct addrinfo * p) {
 							wprintw(wnd, "Existing channels:\n");
 							wattroff(wnd, A_BOLD);
 							for(int i = 0; i < pkt->txt_nchannels; ++i) {
+								wattron(wnd, COLOR_PAIR(3));
 								wprintw(wnd, "\t%.32s\n", pkt->txt_channels[i].ch_channel);
+								wattroff(wnd, COLOR_PAIR(3));
 							}
 							refreshAll();
 						} else {
@@ -311,14 +329,21 @@ void handleNetwork(int sock, struct addrinfo * p) {
 				case TXT_WHO:
 					if(recvSize >= sizeof(text_who)) {
 						text_who * pkt = (text_who *)buf;
+						pkt->txt_nusernames = htonl(pkt->txt_nusernames);
 						const size_t expectedSize = sizeof(text_who) + 
 													(pkt->txt_nusernames * sizeof(user_info));
 						if(recvSize >= expectedSize) {
 							wattron(wnd, A_BOLD);
-							wprintw(wnd, "Users on channel %.32s:\n", pkt->txt_channel);
+							wprintw(wnd, "Users on channel ");
+							wattron(wnd, COLOR_PAIR(3));
+							wprintw(wnd, "%.32s", pkt->txt_channel);
+							wattroff(wnd, COLOR_PAIR(3));
+							wprintw(wnd, ":\n");
 							wattroff(wnd, A_BOLD);
 							for(int i = 0; i < pkt->txt_nusernames; ++i) {
+								wattron(wnd, COLOR_PAIR(4));
 								wprintw(wnd, "\t%.32s\n", pkt->txt_users[i].us_username);
+								wattroff(wnd, COLOR_PAIR(4));
 							}
 							refreshAll();
 						} else {
@@ -362,7 +387,8 @@ bool handleInput(int sock, struct addrinfo * p) {
         if(charRead == 127 && nchars > 0) {
             int cy, cx;
             getyx(inputWnd, cy, cx);
-            mvwdelch(inputWnd, cy, cx-1);
+            mvwaddch(inputWnd, cy, cx-1, ' ');
+			wmove(inputWnd, cy, cx-1);
             line[nchars] = '\0';
             --nchars;
             return true;
@@ -479,5 +505,6 @@ void restoreTerminal(void) {
 
 void timerExpired(int signum) {
 	timeForKeepAlive = true;
+	signal(SIGALRM, timerExpired);
 	alarm(KEEP_ALIVE_FREQ);
 }
