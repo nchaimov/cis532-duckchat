@@ -403,19 +403,25 @@ bool handleInput(int sock, struct addrinfo * p) {
                 return false;
             } else if(strncmp(line, "/join ", 6) == 0) {
                 sendJoinPacket(sock, p, &(line[6]));
+				memset(curChannel, '\0', CHANNEL_MAX+1);
 				strncpy(curChannel, &(line[6]), CHANNEL_MAX);
-				channelsJoined.insert(&line[6]);
+				channelsJoined.insert(curChannel);
 			} else if(strncmp(line, "/switch ", 8) == 0) {
-				if(channelsJoined.count(&line[8]) > 0) {
-					strncpy(curChannel, &(line[8]), CHANNEL_MAX);
+				char chanName[CHANNEL_MAX+1];
+				memset(chanName, '\0', CHANNEL_MAX+1);
+				strncpy(chanName, &(line[8]), CHANNEL_MAX);
+				if(channelsJoined.count(chanName) > 0) {
+					strncpy(curChannel, chanName, CHANNEL_MAX);
 				} else {
 					char err[256];
-					snprintf(err, 256, "you have not subscribed to channel %.32s", &(line[8]));
+					snprintf(err, 256, "you have not subscribed to channel %.32s", chanName);
 					printErrorMsg(err);
 				}
             } else if(strncmp(line, "/leave ", 7) == 0) {
                 sendLeavePacket(sock, p, &(line[7]));
-				channelsJoined.erase(&(line[7]));
+				memset(curChannel, '\0', CHANNEL_MAX+1);
+				strncpy(curChannel, &(line[7]), CHANNEL_MAX);
+				channelsJoined.erase(curChannel);
 				memset(curChannel, '\0', CHANNEL_MAX);
 			} else if(strncmp(line, "/list", 5) == 0) {
 				sendListPacket(sock, p);
