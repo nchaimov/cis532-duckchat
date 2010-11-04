@@ -200,7 +200,14 @@ void sendError(User * user, string msg) {
 	struct text_error pkt;
 	pkt.txt_type = htonl(TXT_ERROR);
 	strncpy(pkt.txt_error, msg.c_str(), SAY_MAX);
-	int status = sendto(sock, &pkt, sizeof(text_error), 0, (sockaddr *) user->address, sizeof(sockaddr));
+	int status = -1;
+	size_t addrSize;
+	if(user->address->ss_family == AF_INET) {
+		addrSize = sizeof(sockaddr);
+	} else {
+		addrSize = sizeof(sockaddr_in6);
+	}
+	status = sendto(sock, &pkt, sizeof(text_error), 0, (sockaddr *) user->address, addrSize);
 	if(status == -1) {
 		perror("while sending error");
 	}
@@ -239,7 +246,15 @@ void say(User * user, Channel * channel, char * msg) {
 	for(list<User *>::iterator it = channel->users.begin(); it != channel->users.end(); ++it) {
 		User * u = *it;
 		if(u != NULL) {
-			int status = sendto(sock, &pkt, sizeof(text_say), 0, (sockaddr *) u->address, sizeof(sockaddr));
+			cerr << "sock: " << sock << ", pkt: " << &pkt << endl;
+			cerr << "user: " << u->key << endl;
+			size_t addrSize;
+			if(u->address->ss_family == AF_INET) {
+				addrSize = sizeof(sockaddr);
+			} else {
+				addrSize = sizeof(sockaddr_in6);
+			}
+			int status = sendto(sock, &pkt, sizeof(text_say), 0, (sockaddr *) u->address, addrSize);
 			if(status == -1) {
 				cerr << "When trying to send say to " << u->name << endl;
 				perror("while sending say");
@@ -272,7 +287,13 @@ void listChannels(User * user) {
 	for(list<Channel *>::iterator it = channelsToSend.begin(); it != channelsToSend.end(); ++it) {
 		strncpy(pkt->txt_channels[i++].ch_channel, (*it)->name.c_str(), CHANNEL_MAX);
 	}
-	int status = sendto(sock, pkt, pktSize, 0, (sockaddr *) user->address, sizeof(sockaddr));
+	size_t addrSize;
+	if(user->address->ss_family == AF_INET) {
+		addrSize = sizeof(sockaddr);
+	} else {
+		addrSize = sizeof(sockaddr_in6);
+	}
+	int status = sendto(sock, pkt, pktSize, 0, (sockaddr *) user->address, addrSize);
 	if(status == -1) {
 		perror("while sending channel list");
 	}
@@ -299,7 +320,13 @@ void who(User * user, Channel * channel) {
 	for(list<User *>::iterator it = channel->users.begin(); it != channel->users.end(); ++it) {
 		strncpy(pkt->txt_users[i++].us_username, (*it)->name.c_str(), USERNAME_MAX);
 	}
-	int status = sendto(sock, pkt, pktSize, 0, (sockaddr *) user->address, sizeof(sockaddr));
+	size_t addrSize;
+	if(user->address->ss_family == AF_INET) {
+		addrSize = sizeof(sockaddr);
+	} else {
+		addrSize = sizeof(sockaddr_in6);
+	}
+	int status = sendto(sock, pkt, pktSize, 0, (sockaddr *) user->address, addrSize);
 	if(status == -1) {
 		perror("while sending who list");
 	}
@@ -407,8 +434,8 @@ int main(int argc, char ** argv) {
 			    inet_ntop(AF_INET6, &s->sin6_addr, ipstr, sizeof(ipstr));
 			}
 		
-			char ip_port_str[INET6_ADDRSTRLEN + 7];
-			snprintf(ip_port_str, INET6_ADDRSTRLEN + 7, "%s:%d", ipstr, port);
+			char ip_port_str[INET6_ADDRSTRLEN + 30];
+			snprintf(ip_port_str, INET6_ADDRSTRLEN + 30, "%s/%d", ipstr, port);
 		
 			if(recvSize >= sizeof(request)) {
 				if(users[ip_port_str] != NULL) {
