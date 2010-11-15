@@ -297,6 +297,7 @@ void listChannels(User * user) {
 	if(status == -1) {
 		perror("while sending channel list");
 	}
+	free(pkt);
 }
 
 void who(User * user, Channel * channel) {
@@ -330,6 +331,7 @@ void who(User * user, Channel * channel) {
 	if(status == -1) {
 		perror("while sending who list");
 	}
+	free(pkt);
 }
 
 void timerExpired(int signum) {
@@ -369,7 +371,7 @@ int main(int argc, char ** argv) {
     int status;
     int numbytes;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
     status = getaddrinfo(hostName, portNumStr, &hints, &servinfo);
 
@@ -457,7 +459,7 @@ int main(int argc, char ** argv) {
 							} else {
 								users[ip_port_str] = user;
 								cout << "User " << user->name << " logged in from " << ip_port_str << endl;
-								addUserToChannel(user, common);
+								//addUserToChannel(user, common);
 							}
 						} else {
 							cerr << "Expected a login packet to have " << sizeof(request_login) << " bytes, but got " << recvSize << " bytes." << endl;

@@ -104,7 +104,7 @@ int main(int argc, char ** argv) {
     int status;
     int numbytes;
     memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
+    hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
     status = getaddrinfo(hostName, portNumStr, &hints, &servinfo);
 
@@ -136,6 +136,7 @@ int main(int argc, char ** argv) {
     fcntl(sock, F_SETFL, O_NONBLOCK);
 
     sendLoginPacket(sock, p, userName);
+    sendJoinPacket(sock, p, "Common");
 
     atexit(restoreTerminal);
     setupTerminal();
